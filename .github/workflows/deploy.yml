@@ -1,4 +1,5 @@
 name: Deploy to EC2
+
 on:
     push:
         branches: [master]
@@ -7,6 +8,7 @@ on:
 concurrency:
     group: deploy-main
     cancel-in-progress: false
+
 jobs:
     deploy:
         runs-on: ubuntu-latest
@@ -19,25 +21,44 @@ jobs:
               with:
                   ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-            - name: Deploy
+            - name: Deploy to EC2
               env:
-                  HOST: ${{ secrets.EC2_HOST }}
-                  USER: ${{ secrets.EC2_USER }}
-                  APP_DIR: /home/ubuntu/neuralife-agent-evaluator
+                  HOST: ${{ secrets.EC2_HOST }} # e.g. 65.1.xx.xx
+                  USER: ${{ secrets.EC2_USER }} # e.g. ubuntu
               run: |
-                  ssh -o StrictHostKeyChecking=no $USER@$HOST "\
-                    if [ ! -d $APP_DIR ]; then git clone https://github.com/<your-org>/neuralife-agent-evaluator.git $APP_DIR; fi; \
-                    cd $APP_DIR; \
-                    git fetch --all; \
-                    git reset --hard origin/main; \
-                    docker compose pull || true; \
-                    docker compose build --no-cache; \
-                    docker compose up -d --remove-orphans; \
-                    docker image prune -f; \
-                    curl -s http://localhost:8000/health || true \
-                  "
+                  ssh -o StrictHostKeyChecking=no $USER@$HOST 'bash -s' << 'EOF'
+                  set -euo pipefail
+                  APP_DIR=/home/ubuntu/neuralife-agent-evaluator
 
-            - name: Health check
+                  # Clone if first time
+                  if [ ! -d "$APP_DIR/.git" ]; then
+                    git clone https://github.com/pavankumar19992208/neuralife-agent-evaluator.git "$APP_DIR"
+                  fi
+
+                  cd "$APP_DIR"
+                  # Ensure git uses the public URL (no credentials needed)
+                  git remote set-url origin https://github.com/pavankumar19992208/neuralife-agent-evaluator.git
+                  # Sync to latest main
+                  git fetch --all
+                  if git show-ref --verify --quiet refs/remotes/origin/main; then
+                    git reset --hard origin/main
+                  else
+                    git reset --hard origin/master
+                  fi
+
+                  # Build and (re)start
+                  docker compose pull || true
+                  docker compose build --no-cache
+                  docker compose up -d --remove-orphans
+
+                  # Cleanup old images
+                  docker image prune -f || true
+
+                  # Health check
+                  curl -s http://localhost:8000/health || true
+                  EOF
+
+            - name: Remote health check
               env:
                   HOST: ${{ secrets.EC2_HOST }}
                   USER: ${{ secrets.EC2_USER }}
