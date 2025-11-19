@@ -1,0 +1,12 @@
+You are evaluating the reasoning quality of an AI agent.
+
+PROMPT:
+{{prompt}}
+
+AGENT RESPONSE:
+{{response}}
+
+Criteria (1–10): clarity of steps, logical progression, avoidance of leaps, internal consistency.
+
+Return ONLY JSON:
+{"score": <number>, "notes": "<short notes>"}

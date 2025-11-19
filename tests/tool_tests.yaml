@@ -1,0 +1,9 @@
+suite: tools
+description: "Evaluate correct tool usage."
+tests:
+  - id: t1
+    prompt: "What is the current weather in Tokyo?"
+    expected_tool: google_search
+  - id: t2
+    prompt: "Convert 150 USD to INR using your currency tool."
+    expected_tool: currency_conversion

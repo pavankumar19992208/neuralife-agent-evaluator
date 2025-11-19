@@ -1,0 +1,15 @@
+suite: reasoning
+description: "Evaluate agent's reasoning coherence and step-by-step logic."
+tests:
+  - id: r1
+    prompt: "Explain how a blockchain works to a 12-year-old."
+    expected_keywords:
+      - blocks
+      - chain
+      - transactions
+      - network
+    grader: reasoning
+  - id: r2
+    prompt: "Walk me through solving 24 * 17 in steps."
+    expected_behavior: stepwise
+    grader: reasoning

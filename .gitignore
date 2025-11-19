@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env*
+
+# Virtual environments
+venv/
+.env/
+
+# Docker artifacts
+*.log
+
+# Data & reports
+/data/*
+!/data/.gitkeep
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Cache
+*.cache
+
+# Node (if UI expands)
+node_modules/
+.dist/
+.build/

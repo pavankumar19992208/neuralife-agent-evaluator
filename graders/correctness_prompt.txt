@@ -1,0 +1,19 @@
+You are evaluating the correctness of an AI agent's output.
+
+USER PROMPT:
+{{prompt}}
+
+AGENT RESPONSE:
+{{response}}
+
+EXPECTED OUTCOME:
+{{expected}}
+
+Score correctness from 1–10 based on:
+- factual accuracy
+- matching expected output
+- absence of hallucinations
+- completeness of logic
+
+Return ONLY a JSON:
+{ "score": <number>, "notes": "<short notes>" }

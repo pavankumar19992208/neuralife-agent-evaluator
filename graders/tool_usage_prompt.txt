@@ -1,0 +1,14 @@
+You are grading TOOL USAGE quality.
+
+PROMPT:
+{{prompt}}
+
+AGENT RESPONSE:
+{{response}}
+
+EXPECTED TOOL(S):
+{{expected_tool}}
+
+Score 1–10 on: correct tool selection, parameter accuracy, minimal redundant calls, graceful fallback when tool missing.
+Return ONLY JSON:
+{"score": <number>, "notes": "<short notes>"}
