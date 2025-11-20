@@ -19,7 +19,7 @@
     <p>Placeholder UI. API health status:</p>
     <pre id="health">Loading...</pre>
     <script>
-      fetch("http://localhost:8000/health")
+      fetch("/health")
         .then((r) => r.json())
         .then((d) => {
           document.getElementById("health").textContent = JSON.stringify(
