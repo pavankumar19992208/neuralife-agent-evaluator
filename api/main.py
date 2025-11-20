@@ -1,6 +1,7 @@
 import os, uuid, json
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
 
@@ -10,7 +11,6 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 app = FastAPI(title="Neuralife Agent Evaluator API", version=APP_VERSION)
 
-# Serve UI under /ui (avoid mounting at "/")
 UI_DIR = os.path.join(os.path.dirname(__file__), "ui")
 if os.path.isdir(UI_DIR):
     app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
@@ -22,7 +22,7 @@ class EvalRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": "Neuralife Agent Evaluator running", "version": APP_VERSION}
+    return RedirectResponse(url="/ui/")
 
 @app.get("/health")
 def health():
@@ -43,13 +43,7 @@ def run_welcome():
 @app.post("/evaluate")
 def evaluate(req: EvalRequest):
     job_id = req.run_id or str(uuid.uuid4())
-    report = {
-        "job_id": job_id,
-        "agent": req.agent_archive_path,
-        "suite": req.suite,
-        "status": "queued",
-        "schema_version": 1
-    }
+    report = {"job_id": job_id, "agent": req.agent_archive_path, "suite": req.suite, "status": "queued", "schema_version": 1}
     path = os.path.join(DATA_DIR, f"{job_id}_report.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
