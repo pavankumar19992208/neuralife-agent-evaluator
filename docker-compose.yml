@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   api:
-    build: ./api
+    build: ./
     container_name: nle_api
     ports:
       - "8000:8000"
