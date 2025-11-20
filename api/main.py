@@ -1,6 +1,4 @@
-import os
-import uuid
-import json
+import os, uuid, json
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -12,15 +10,19 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 app = FastAPI(title="Neuralife Agent Evaluator API", version=APP_VERSION)
 
-# Mount UI if present
+# Serve UI under /ui (avoid mounting at "/")
 UI_DIR = os.path.join(os.path.dirname(__file__), "ui")
 if os.path.isdir(UI_DIR):
-    app.mount("/", StaticFiles(directory=UI_DIR, html=True), name="ui")
+    app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
 
 class EvalRequest(BaseModel):
     agent_archive_path: str
     suite: str = "all"
     run_id: Optional[str] = None
+
+@app.get("/")
+def root():
+    return {"message": "Neuralife Agent Evaluator running", "version": APP_VERSION}
 
 @app.get("/health")
 def health():
@@ -36,12 +38,12 @@ def run_welcome():
     payload = {"job_id": job_id, "message": "welcome run completed"}
     with open(os.path.join(DATA_DIR, f"{job_id}_report.json"), "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
-    return {"job_id": job_id, "message": "welcome run queued/completed", "report_path": f"/data/{job_id}_report.json"}
+    return payload
 
 @app.post("/evaluate")
 def evaluate(req: EvalRequest):
     job_id = req.run_id or str(uuid.uuid4())
-    placeholder = {
+    report = {
         "job_id": job_id,
         "agent": req.agent_archive_path,
         "suite": req.suite,
@@ -50,7 +52,7 @@ def evaluate(req: EvalRequest):
     }
     path = os.path.join(DATA_DIR, f"{job_id}_report.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(placeholder, f, indent=2)
+        json.dump(report, f, indent=2)
     return {"job_id": job_id, "report_path": path}
 
 @app.get("/trace/{job_id}")
