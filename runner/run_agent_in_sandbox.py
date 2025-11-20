@@ -37,8 +37,10 @@ def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: s
             "duration_seconds": round(time.time() - start, 3),
         }
     except subprocess.TimeoutExpired as e:
-        try: subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, timeout=5)
-        except Exception: pass
+        try:
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, timeout=5)
+        except Exception:
+            pass
         return {
             "exit_code": -1,
             "stdout": (getattr(e, "stdout", "") or ""),
@@ -78,20 +80,31 @@ def write_trace(job_id: str, archive_path: str, cmd: str, result: dict, workdir:
     return out_path
 
 def run_job(archive: str, cmd: str, timeout: int, memory: str, cpus: str):
-    if not docker_available():
-        raise RuntimeError("Docker not available. Ensure docker.sock is mounted and docker CLI installed.")
     job_id = str(uuid.uuid4())
-    workdir = os.path.join(DATA_DIR, "work", job_id)  # host-mapped path
+    workdir = os.path.join(DATA_DIR, "work", job_id)
     Path(workdir).mkdir(parents=True, exist_ok=True)
 
+    # If Docker not available, emit an error trace instead of raising
+    if not docker_available():
+        err = {
+            "exit_code": -3,
+            "stdout": "",
+            "stderr": "Docker not available. Mount /var/run/docker.sock into API container and install docker CLI.",
+            "duration_seconds": 0,
+        }
+        trace_path = write_trace(job_id, archive, cmd, err, workdir)
+        return job_id, trace_path
+
+    # Extract agent archive
     try:
         extract_archive(archive, workdir)
     except Exception as e:
         err_path = os.path.join(DATA_DIR, f"{job_id}_trace.json")
-        with open(err_path, "w") as f:
+        with open(err_path, "w", encoding="utf-8") as f:
             json.dump({"job_id": job_id, "error": f"extract failed: {e}", "archive": os.path.abspath(archive)}, f, indent=2)
         return job_id, err_path
 
+    # Run in sandbox
     try:
         result = run_in_docker(workdir, cmd, job_id, timeout_s=timeout, memory=memory, cpus=cpus)
     except Exception as e:
@@ -107,6 +120,6 @@ if __name__ == "__main__":
     p.add_argument("--timeout", type=int, default=30)
     p.add_argument("--memory", default="256m")
     p.add_argument("--cpus", default="0.5")
-    args = p.parse_args()
-    jid, path = run_job(args.archive, args.cmd, args.timeout, args.memory, args.cpus)
+    a = p.parse_args()
+    jid, path = run_job(a.archive, a.cmd, a.timeout, a.memory, a.cpus)
     print(json.dumps({"job_id": jid, "trace_path": path}))

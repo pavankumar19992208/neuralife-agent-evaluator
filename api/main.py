@@ -1,6 +1,6 @@
 import os, uuid, json
 from pathlib import Path
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -66,11 +66,11 @@ def evaluate(req: EvalRequest):
     return {"job_id": job_id, "report_path": path}
 
 @app.post("/start-eval")
-def start_eval(req: StartEvalRequest, background_tasks: BackgroundTasks):
+def start_eval(req: StartEvalRequest):
     if not Path(req.archive_path).exists():
         raise HTTPException(status_code=400, detail="archive_path not found on server")
-    background_tasks.add_task(start_sandbox_job, req.archive_path, req.cmd, req.timeout, req.memory, req.cpus)
-    return {"status": "accepted", "hint": "Use /trace-list then /trace/{job_id}"}
+    result = start_sandbox_job(req.archive_path, req.cmd, req.timeout, req.memory, req.cpus)
+    return {"status": "completed", **result}
 
 @app.get("/trace-list")
 def trace_list():
