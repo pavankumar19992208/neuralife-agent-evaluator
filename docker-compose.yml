@@ -9,6 +9,7 @@ services:
       - DATA_DIR=/data
       - NLE_DATA_DIR=/data
       - PYTHONUNBUFFERED=1
+      - HOST_DATA_DIR=/home/ubuntu/neuralife-agent-evaluator/data # added
     volumes:
       - ./api:/app
       - ./runner:/app/runner

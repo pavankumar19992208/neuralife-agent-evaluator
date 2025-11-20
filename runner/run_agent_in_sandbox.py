@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse, os, shutil, subprocess, uuid, json, time
 from pathlib import Path
-
+HOST_DATA_DIR = os.getenv("HOST_DATA_DIR")
 DATA_DIR = os.environ.get("NLE_DATA_DIR", "/data")
 Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -17,7 +17,19 @@ def docker_available() -> bool:
 
 def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: str, cpus: str):
     container_name = f"nle_sandbox_{job_id}"
-    host_path = os.path.abspath(workdir)
+    if HOST_DATA_DIR:
+        rel = os.path.relpath(workdir, DATA_DIR)          # e.g. work/<job_id>
+        host_path = os.path.join(HOST_DATA_DIR, rel)      # /home/ubuntu/.../data/work/<job_id>
+    else:
+        host_path = os.path.abspath(workdir)
+    if not os.path.isdir(host_path):
+        return {
+            "exit_code": -7,
+            "stdout": "",
+            "stderr": f"Host path missing before docker run: {host_path}",
+            "duration_seconds": 0,
+            "docker_cmd": None
+        }
     docker_cmd = [
         "docker","run","--rm",
         "--name",container_name,
@@ -26,7 +38,7 @@ def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: s
         "--network","none",
         "-v",f"{host_path}:/agent:ro",
         "python:3.11-slim",
-        "bash","-lc",f"cd /agent && {cmd}"
+        "bash","-lc",f"cd /agent && ls -l && {cmd}"
     ]
     start = time.time()
     try:
@@ -37,17 +49,6 @@ def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: s
             "stderr": proc.stderr,
             "duration_seconds": round(time.time() - start, 3),
             "docker_cmd": " ".join(docker_cmd),
-        }
-    except subprocess.TimeoutExpired as e:
-        try:
-            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, timeout=5)
-        except Exception:
-            pass
-        return {
-            "exit_code": -1,
-            "stdout": (getattr(e, "stdout", "") or ""),
-            "stderr": (getattr(e, "stderr", "") or "") + f"\nTIMEOUT after {timeout_s}s",
-            "duration_seconds": timeout_s,
         }
 
 def parse_tool_calls(stdout: str):
@@ -76,6 +77,7 @@ def write_trace(job_id: str, archive_path: str, cmd: str, result: dict, workdir:
         "workdir": workdir,
         "files": sorted(os.listdir(workdir))[:100],
         "docker_cmd": result.get("docker_cmd"),
+        "host_mount_base": HOST_DATA_DIR,  # added
         "created_at": time.time(),
     }
     out_path = os.path.join(DATA_DIR, f"{job_id}_trace.json")
