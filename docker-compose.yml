@@ -12,8 +12,7 @@ services:
     volumes:
       - ./api:/app
       - ./runner:/app/runner
-      - ./data:/data
-      - ./ui:/app/ui:ro
+      - ./data:/data # REQUIRED so host daemon sees work dirs
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
