@@ -2,35 +2,139 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Neuralife Evaluator UI (Placeholder)</title>
+    <title>Neuralife Agent Evaluator</title>
     <style>
       body {
         font-family: Arial, sans-serif;
         margin: 2rem;
       }
-      code {
+      pre {
         background: #f5f5f5;
-        padding: 2px 4px;
+        padding: 1rem;
+      }
+      button {
+        padding: 8px 14px;
+        margin-top: 10px;
+        cursor: pointer;
+      }
+      input {
+        padding: 6px;
+        width: 350px;
       }
     </style>
   </head>
   <body>
-    <h1>Neuralife Agent Evaluator</h1>
-    <p>Placeholder UI. API health status:</p>
+    <h1>Neuralife Agent Evaluator (UI Placeholder)</h1>
+
+    <h3>API Health</h3>
     <pre id="health">Loading...</pre>
+
     <script>
       fetch("/health")
         .then((r) => r.json())
-        .then((d) => {
-          document.getElementById("health").textContent = JSON.stringify(
-            d,
-            null,
-            2
-          );
+        .then(
+          (d) =>
+            (document.getElementById("health").textContent = JSON.stringify(
+              d,
+              null,
+              2
+            ))
+        )
+        .catch(
+          (e) => (document.getElementById("health").textContent = "Error: " + e)
+        );
+    </script>
+
+    <hr />
+
+    <h3>Start Evaluation</h3>
+    <label>Agent Tarball Path (inside container):</label><br />
+    <input id="agentPath" value="/data/agents/home_automation_agent.tar.gz" />
+    <br /><br />
+
+    <button onclick="startEval()">Start</button>
+
+    <pre id="startEvalOutput"></pre>
+
+    <script>
+      function startEval() {
+        const body = {
+          archive_path: document.getElementById("agentPath").value,
+          cmd: "python agent_main.py",
+          timeout: 20,
+          memory: "256m",
+          cpus: "0.5",
+        };
+
+        fetch("/start-eval", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         })
-        .catch((e) => {
-          document.getElementById("health").textContent = "Error: " + e;
-        });
+          .then((r) => r.json())
+          .then(
+            (d) =>
+              (document.getElementById("startEvalOutput").textContent =
+                JSON.stringify(d, null, 2))
+          )
+          .catch(
+            (e) =>
+              (document.getElementById("startEvalOutput").textContent =
+                "ERR: " + e)
+          );
+      }
+    </script>
+
+    <hr />
+
+    <h3>Trace Files</h3>
+    <button onclick="loadTraces()">Load Trace List</button>
+    <pre id="traceList">Click button to load.</pre>
+
+    <script>
+      function loadTraces() {
+        fetch("/trace-list")
+          .then((r) => r.json())
+          .then(
+            (d) =>
+              (document.getElementById("traceList").textContent =
+                JSON.stringify(d, null, 2))
+          )
+          .catch(
+            (e) =>
+              (document.getElementById("traceList").textContent = "ERR: " + e)
+          );
+      }
+    </script>
+
+    <hr />
+
+    <h3>Fetch Single Trace</h3>
+    <label>Enter Job ID:</label><br />
+    <input id="jobId" placeholder="uuid..." />
+    <br /><br />
+    <button onclick="loadTrace()">Load Trace</button>
+    <pre id="traceOutput"></pre>
+
+    <script>
+      function loadTrace() {
+        const job = document.getElementById("jobId").value.trim();
+        if (!job) {
+          alert("Enter job id!");
+          return;
+        }
+        fetch(`/trace/${job}`)
+          .then((r) => r.json())
+          .then(
+            (d) =>
+              (document.getElementById("traceOutput").textContent =
+                JSON.stringify(d, null, 2))
+          )
+          .catch(
+            (e) =>
+              (document.getElementById("traceOutput").textContent = "ERR: " + e)
+          );
+      }
     </script>
   </body>
 </html>
