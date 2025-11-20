@@ -11,7 +11,7 @@ services:
       - PYTHONUNBUFFERED=1
       - HOST_DATA_DIR=/home/ubuntu/neuralife-agent-evaluator/data # added
     volumes:
-      - .:/app
+      - ./api:/app
       - ./runner:/app/runner
       - ./data:/data
       - ./ui:/app/ui:ro
