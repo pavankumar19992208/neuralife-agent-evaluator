@@ -17,11 +17,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
-  ui:
-    image: nginx:stable-alpine
-    container_name: nle_ui
-    volumes:
-      - ./ui:/usr/share/nginx/html:ro
-    ports:
-      - "8080:80"
-    restart: unless-stopped
+  # ui:
+  #   image: nginx:stable-alpine
+  #   container_name: nle_ui
+  #   volumes:
+  #     - ./ui:/usr/share/nginx/html:ro
+  #   ports:
+  #     - "8080:80"
+  #   restart: unless-stopped
