@@ -72,6 +72,7 @@ def write_trace(job_id: str, archive_path: str, cmd: str, result: dict, workdir:
         "stderr_snippet": (result.get("stderr") or "")[:4000],
         "tool_calls": parse_tool_calls(result.get("stdout") or ""),
         "workdir": workdir,
+        "files": sorted(os.listdir(workdir))[:100],
         "created_at": time.time(),
     }
     out_path = os.path.join(DATA_DIR, f"{job_id}_trace.json")
@@ -84,31 +85,73 @@ def run_job(archive: str, cmd: str, timeout: int, memory: str, cpus: str):
     workdir = os.path.join(DATA_DIR, "work", job_id)
     Path(workdir).mkdir(parents=True, exist_ok=True)
 
-    # If Docker not available, emit an error trace instead of raising
-    if not docker_available():
-        err = {
-            "exit_code": -3,
+    if not Path(archive).exists():
+        result = {
+            "exit_code": -5,
             "stdout": "",
-            "stderr": "Docker not available. Mount /var/run/docker.sock into API container and install docker CLI.",
-            "duration_seconds": 0,
+            "stderr": f"Archive not found: {archive}",
+            "duration_seconds": 0
         }
-        trace_path = write_trace(job_id, archive, cmd, err, workdir)
-        return job_id, trace_path
+        return job_id, write_trace(job_id, archive, cmd, result, workdir)
 
-    # Extract agent archive
+    # Extract archive
     try:
         extract_archive(archive, workdir)
     except Exception as e:
-        err_path = os.path.join(DATA_DIR, f"{job_id}_trace.json")
-        with open(err_path, "w", encoding="utf-8") as f:
-            json.dump({"job_id": job_id, "error": f"extract failed: {e}", "archive": os.path.abspath(archive)}, f, indent=2)
-        return job_id, err_path
+        result = {
+            "exit_code": -6,
+            "stdout": "",
+            "stderr": f"Extraction failed: {e}",
+            "duration_seconds": 0
+        }
+        return job_id, write_trace(job_id, archive, cmd, result, workdir)
 
-    # Run in sandbox
+    # Validate command target (first python argument)
+    # If cmd looks like: python agent_main.py ...
+    parts = cmd.strip().split()
+    target_file = None
+    if len(parts) >= 2 and parts[0] == "python":
+        target_file = parts[1]
+        # Normalize relative path
+        if target_file.startswith("./"):
+            target_file = target_file[2:]
+        if not Path(workdir, target_file).exists():
+            result = {
+                "exit_code": -4,
+                "stdout": "",
+                "stderr": f"Command target missing: {target_file} in archive root. Files: {sorted(os.listdir(workdir))[:20]}",
+                "duration_seconds": 0
+            }
+            return job_id, write_trace(job_id, archive, cmd, result, workdir)
+
+    # If Docker unavailable, fallback direct execution (no isolation)
+    if not docker_available():
+        start = time.time()
+        try:
+            proc = subprocess.run(
+                ["bash", "-lc", f"cd {workdir} && {cmd}"],
+                capture_output=True, text=True, timeout=timeout
+            )
+            result = {
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+                "duration_seconds": round(time.time() - start, 3)
+            }
+        except subprocess.TimeoutExpired:
+            result = {
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": f"Timeout (no-docker fallback) after {timeout}s",
+                "duration_seconds": timeout
+            }
+        return job_id, write_trace(job_id, archive, cmd, result, workdir)
+
+    # Docker path
     try:
         result = run_in_docker(workdir, cmd, job_id, timeout_s=timeout, memory=memory, cpus=cpus)
     except Exception as e:
-        result = {"exit_code": -2, "stdout": "", "stderr": f"runner exception: {e}", "duration_seconds": 0}
+        result = {"exit_code": -2, "stdout": "", "stderr": f"Docker run exception: {e}", "duration_seconds": 0}
 
     trace_path = write_trace(job_id, archive, cmd, result, workdir)
     return job_id, trace_path
