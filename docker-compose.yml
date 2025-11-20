@@ -12,7 +12,8 @@ services:
     volumes:
       - ./api:/app
       - ./runner:/app/runner
-      - ./data:/data # REQUIRED so host daemon sees work dirs
+      - ./data:/data
+      - ./ui:/app/ui:ro # add this to enable /ui on :8000
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
