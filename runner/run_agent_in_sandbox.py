@@ -17,15 +17,16 @@ def docker_available() -> bool:
 
 def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: str, cpus: str):
     container_name = f"nle_sandbox_{job_id}"
+    host_path = os.path.abspath(workdir)
     docker_cmd = [
-        "docker", "run", "--rm",
-        "--name", container_name,
-        "--cpus", str(cpus),
-        "--memory", memory,
-        "--network", "none",
-        "-v", f"{workdir}:/agent:ro",
+        "docker","run","--rm",
+        "--name",container_name,
+        "--cpus",str(cpus),
+        "--memory",memory,
+        "--network","none",
+        "-v",f"{host_path}:/agent:ro",
         "python:3.11-slim",
-        "bash", "-lc", f"cd /agent && {cmd}"
+        "bash","-lc",f"echo 'Mounted files:'; ls -l; cd /agent && ls -l && pwd && {cmd}"
     ]
     start = time.time()
     try:
