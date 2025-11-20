@@ -9,12 +9,12 @@ services:
       - DATA_DIR=/data
       - NLE_DATA_DIR=/data
       - PYTHONUNBUFFERED=1
-      - HOST_DATA_DIR=/home/ubuntu/neuralife-agent-evaluator/data # added
+      - HOST_DATA_DIR=/home/ubuntu/neuralife-agent-evaluator/data
     volumes:
       - ./api:/app
       - ./runner:/app/runner
       - ./data:/data
-      - ./ui:/app/ui:ro
+      - /home/ubuntu/neuralife-agent-evaluator/data:/home/ubuntu/neuralife-agent-evaluator/data
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
