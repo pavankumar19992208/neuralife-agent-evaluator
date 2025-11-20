@@ -18,8 +18,8 @@ def docker_available() -> bool:
 def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: str, cpus: str):
     container_name = f"nle_sandbox_{job_id}"
     if HOST_DATA_DIR:
-        rel = os.path.relpath(workdir, DATA_DIR)          # e.g. work/<job_id>
-        host_path = os.path.join(HOST_DATA_DIR, rel)      # /home/ubuntu/.../data/work/<job_id>
+        rel = os.path.relpath(workdir, DATA_DIR)
+        host_path = os.path.join(HOST_DATA_DIR, rel)
     else:
         host_path = os.path.abspath(workdir)
     if not os.path.isdir(host_path):
@@ -50,7 +50,27 @@ def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: s
             "duration_seconds": round(time.time() - start, 3),
             "docker_cmd": " ".join(docker_cmd),
         }
-
+    except subprocess.TimeoutExpired as e:
+        try:
+            subprocess.run(["docker","rm","-f",container_name], capture_output=True, timeout=5)
+        except Exception:
+            pass
+        return {
+            "exit_code": -1,
+            "stdout": (getattr(e,"stdout","") or ""),
+            "stderr": (getattr(e,"stderr","") or "") + f"\nTIMEOUT after {timeout_s}s",
+            "duration_seconds": timeout_s,
+            "docker_cmd": " ".join(docker_cmd),
+        }
+    except Exception as e:
+        return {
+            "exit_code": -2,
+            "stdout": "",
+            "stderr": f"Unexpected docker error: {e}",
+            "duration_seconds": round(time.time() - start, 3),
+            "docker_cmd": " ".join(docker_cmd),
+        }
+        
 def parse_tool_calls(stdout: str):
     out = []
     for line in stdout.splitlines():
