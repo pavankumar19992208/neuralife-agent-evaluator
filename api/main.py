@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
-from api.tasks.sandbox_job import start_sandbox_job
+from tasks.sandbox_job import start_sandbox_job
 
 APP_VERSION = "0.1.0"
 DATA_DIR = os.getenv("DATA_DIR", "/data")
