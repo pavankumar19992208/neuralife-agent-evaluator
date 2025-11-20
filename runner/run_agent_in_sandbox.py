@@ -26,7 +26,7 @@ def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: s
         "--network","none",
         "-v",f"{host_path}:/agent:ro",
         "python:3.11-slim",
-        "bash","-lc",f"echo 'Mounted files:'; ls -l; cd /agent && ls -l && pwd && {cmd}"
+        "bash","-lc",f"cd /agent && {cmd}"
     ]
     start = time.time()
     try:
@@ -36,6 +36,7 @@ def run_in_docker(workdir: str, cmd: str, job_id: str, timeout_s: int, memory: s
             "stdout": proc.stdout,
             "stderr": proc.stderr,
             "duration_seconds": round(time.time() - start, 3),
+            "docker_cmd": " ".join(docker_cmd),
         }
     except subprocess.TimeoutExpired as e:
         try:
@@ -74,6 +75,7 @@ def write_trace(job_id: str, archive_path: str, cmd: str, result: dict, workdir:
         "tool_calls": parse_tool_calls(result.get("stdout") or ""),
         "workdir": workdir,
         "files": sorted(os.listdir(workdir))[:100],
+        "docker_cmd": result.get("docker_cmd"),
         "created_at": time.time(),
     }
     out_path = os.path.join(DATA_DIR, f"{job_id}_trace.json")
