@@ -34,7 +34,8 @@ class StartEvalRequest(BaseModel):
     timeout: int = 30
     memory: str = "256m"
     cpus: str = "0.5"
-
+class RunEvalRequest(BaseModel):
+    raw_results_path: str
 @app.get("/")
 def root():
     return RedirectResponse(url="/ui/")
@@ -46,7 +47,31 @@ def health():
 @app.get("/welcome")
 def welcome():
     return {"message": "Neuralife Agent Evaluator running", "version": APP_VERSION}
+    
+def run_pipeline_task(raw_path: str):
+    """Background task to run the evaluation pipeline script."""
+    try:
+        # Assuming evaluation_pipeline.py is in /app/evaluation/
+        # and python is available in path
+        cmd = ["python", "evaluation/evaluation_pipeline.py", "--raw", raw_path]
+        print(f"Starting pipeline: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        print(f"Pipeline finished for {raw_path}")
+    except subprocess.CalledProcessError as e:
+        print(f"Pipeline failed: {e}")
+    except Exception as e:
+        print(f"Error running pipeline: {e}")
 
+@app.post("/run-evaluation")
+def run_evaluation(req: RunEvalRequest, background_tasks: BackgroundTasks):
+    """Triggers the Day 3 evaluation pipeline."""
+    if not os.path.exists(req.raw_results_path):
+        raise HTTPException(status_code=404, detail="Raw results file not found")
+    
+    # Run in background so UI doesn't hang
+    background_tasks.add_task(run_pipeline_task, req.raw_results_path)
+    
+    return {"status": "started", "message": "Evaluation pipeline started in background"}
 @app.post("/run-welcome")
 def run_welcome():
     job_id = str(uuid.uuid4())

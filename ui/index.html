@@ -78,6 +78,22 @@
       >
     </div>
     <pre id="reportView">Select a report above...</pre>
+    <!-- NEW SECTION START -->
+    <h2>Run Evaluation Pipeline (Day 3)</h2>
+    <div class="row">
+      <label>Raw Results Path:</label>
+      <input
+        id="rawResultsPath"
+        size="70"
+        value="/data/reports/YOUR_RAW_RESULTS.json"
+        placeholder="/data/reports/..."
+      />
+      <button onclick="runEvaluation()">POST /run-evaluation</button>
+    </div>
+    <pre id="runEvalResp">
+Enter path to raw results JSON and click to grade...</pre
+    >
+    <!-- NEW SECTION END -->
 
     <h2>Start Sandbox Eval (Day 1/2)</h2>
     <div>
