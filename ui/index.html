@@ -186,6 +186,36 @@ Enter path to raw results JSON and click to grade...</pre
         );
       }
 
+      async function runEvaluation() {
+        const path = document.getElementById("rawResultsPath").value.trim();
+        if (!path) {
+          alert("Please enter a raw results path");
+          return;
+        }
+
+        document.getElementById("runEvalResp").textContent =
+          "Starting evaluation... please wait...";
+
+        const r = await api("/run-evaluation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ raw_results_path: path }),
+        });
+
+        document.getElementById("runEvalResp").textContent = JSON.stringify(
+          r.data,
+          null,
+          2
+        );
+
+        // Refresh the report list after a short delay to see the new report
+        if (r.ok) {
+          setTimeout(() => {
+            loadReportList();
+          }, 3000);
+        }
+      }
+
       // --- Day 3 Functions ---
 
       async function loadReportList() {
