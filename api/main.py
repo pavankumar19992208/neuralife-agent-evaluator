@@ -1,6 +1,6 @@
 import os, uuid, json
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException ,BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
@@ -47,7 +47,7 @@ def health():
 @app.get("/welcome")
 def welcome():
     return {"message": "Neuralife Agent Evaluator running", "version": APP_VERSION}
-    
+
 def run_pipeline_task(raw_path: str):
     """Background task to run the evaluation pipeline script."""
     try:
