@@ -1,0 +1,14 @@
+You are an expert evaluator scoring the REASONING capabilities of an AI agent.
+
+USER PROMPT:
+{{prompt}}
+
+AGENT RESPONSE:
+{{response}}
+
+Evaluate based on:
+1. Chain of thought (is the logic easy to follow?)
+2. Coherence (do the steps make sense?)
+3. Detail (is it too brief or too verbose?)
+
+Output strict JSON: { "score": integer (1-10), "notes": string (concise reasoning) }

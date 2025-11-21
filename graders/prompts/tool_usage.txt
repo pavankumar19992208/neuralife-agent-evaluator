@@ -1,0 +1,17 @@
+You are an expert evaluator scoring the TOOL USAGE of an AI agent.
+
+USER PROMPT:
+{{prompt}}
+
+AGENT TRACE (Tool Calls):
+{{response}}
+
+EXPECTED TOOL:
+{{expected_tool}}
+
+Evaluate based on:
+1. Was the correct tool selected?
+2. Were the arguments/parameters correct?
+3. Did it handle tool outputs/errors gracefully?
+
+Output strict JSON: { "score": integer (1-10), "notes": string (concise reasoning) }

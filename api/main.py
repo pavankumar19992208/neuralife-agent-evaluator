@@ -2,14 +2,15 @@ import os, uuid, json
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 from api.tasks.sandbox_job import start_sandbox_job
 
 APP_VERSION = "0.1.0"
 DATA_DIR = os.getenv("DATA_DIR", "/data")
-Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+REPORTS_DIR = os.path.join(DATA_DIR, "reports")
+Path(REPORTS_DIR).mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Neuralife Agent Evaluator API", version=APP_VERSION)
 
@@ -24,7 +25,7 @@ class EvalRequest(BaseModel):
     run_id: Optional[str] = None
 
 class StartEvalRequest(BaseModel):
-    archive_path: str                  # e.g. /data/agents/home_automation_agent.tar.gz
+    archive_path: str
     cmd: str = "python agent_main.py"
     timeout: int = 30
     memory: str = "256m"
@@ -50,21 +51,6 @@ def run_welcome():
         json.dump(payload, f, indent=2)
     return payload
 
-@app.post("/evaluate")
-def evaluate(req: EvalRequest):
-    job_id = req.run_id or str(uuid.uuid4())
-    report = {
-        "job_id": job_id,
-        "agent": req.agent_archive_path,
-        "suite": req.suite,
-        "status": "queued",
-        "schema_version": 1
-    }
-    path = os.path.join(DATA_DIR, f"{job_id}_report.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-    return {"job_id": job_id, "report_path": path}
-
 @app.post("/start-eval")
 def start_eval(req: StartEvalRequest):
     if not Path(req.archive_path).exists():
@@ -84,3 +70,43 @@ def get_trace(job_id: str):
         raise HTTPException(status_code=404, detail="trace not found")
     with open(trace_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+# --- NEW DAY 3 ENDPOINTS ---
+
+@app.get("/report-list")
+def report_list():
+    """Lists all generated evaluation reports."""
+    if not os.path.exists(REPORTS_DIR):
+        return {"reports": []}
+    files = sorted([f for f in os.listdir(REPORTS_DIR) if f.endswith("_evaluation_report.json")])
+    return {"reports": files}
+
+@app.get("/report/{run_id}")
+def get_report(run_id: str):
+    """Returns the JSON evaluation report."""
+    # Handle both full filename or just the ID
+    if not run_id.endswith(".json"):
+        filename = f"{run_id}_evaluation_report.json"
+    else:
+        filename = run_id
+        
+    path = os.path.join(REPORTS_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+@app.get("/report-html/{run_id}")
+def get_report_html(run_id: str):
+    """Returns the HTML evaluation report for rendering in browser."""
+    # Extract ID if filename passed
+    clean_id = run_id.replace("_evaluation_report.json", "").replace("_evaluation_report.html", "")
+    filename = f"{clean_id}_evaluation_report.html"
+    
+    path = os.path.join(REPORTS_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="HTML Report not found")
+            
+    with open(path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())

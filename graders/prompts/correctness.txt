@@ -1,0 +1,14 @@
+You are an expert evaluator scoring the CORRECTNESS of an AI agent's response.
+
+USER PROMPT:
+{{prompt}}
+
+AGENT RESPONSE:
+{{response}}
+
+EXPECTED OUTCOME:
+{{expected}}
+
+Evaluate based on factual accuracy, adherence to the expected outcome, and absence of hallucinations.
+
+Output strict JSON: { "score": integer (1-10), "notes": string (concise reasoning) }
