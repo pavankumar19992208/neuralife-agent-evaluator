@@ -1,173 +1,165 @@
 import argparse
 import json
-import time
-import statistics
-from pathlib import Path
-from graders.grader_engine import grade
+import os
+import sys
+from datetime import datetime
 
-# Weights for the evaluation (Customize as per your PDF plan)
-WEIGHTS = {
-    "correctness": 0.40,
-    "reasoning": 0.30,
-    "tool_usage": 0.20,
-    "safety": 0.10
-}
+# Ensure we can import graders
+sys.path.append(os.getcwd())
 
-REPORTS_DIR = Path("data/reports")
-REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    from graders.grader_engine import grade
+except ImportError:
+    # Fallback if running from different directory
+    sys.path.append(os.path.join(os.getcwd(), ".."))
+    from graders.grader_engine import grade
 
-def grade_test_case(case):
-    """
-    Grades a single ADK test case.
-    """
-    # Extract data from ADK Evalset format
-    # Note: ADK structure usually has 'conversation' list
-    conversation = case.get("conversation", [])
+REPORTS_DIR = os.environ.get("DATA_DIR", "data") + "/reports"
+os.makedirs(REPORTS_DIR, exist_ok=True)
+
+def generate_html_report(run_id, results, overall_score):
+    """Generates a simple HTML scorecard."""
+    rows = ""
+    for r in results:
+        rows += f"""
+        <tr>
+            <td>{r['test_id']}</td>
+            <td>{r['prompt'][:50]}...</td>
+            <td>{r['score']}/5</td>
+            <td>{r['reason']}</td>
+            <td>{r['actual_output'][:100]}...</td>
+        </tr>
+        """
     
-    if not conversation:
-        return {}
-
-    # Get the User Input (Prompt)
-    user_input = conversation[0].get("user_content", {}).get("parts", [{}])[0].get("text", "")
-    
-    # Get the Agent Output (Response)
-    agent_response = conversation[-1].get("final_response", {}).get("parts", [{}])[0].get("text", "")
-    
-    # Get Tool Calls (Intermediate Data in ADK)
-    tool_calls = conversation[-1].get("intermediate_data", {}).get("tool_uses", [])
-    
-    # Expected values (usually stored in custom fields or separate config)
-    expected_output = case.get("expected_output", "")
-    expected_tool = case.get("expected_tool", "")
-
-    scores = {}
-    
-    # 1. Grade Correctness
-    scores["correctness"] = grade("correctness", user_input, agent_response, expected_output)
-    
-    # 2. Grade Reasoning
-    scores["reasoning"] = grade("reasoning", user_input, agent_response)
-    
-    # 3. Grade Tool Usage (if tools were expected or used)
-    if tool_calls or expected_tool:
-        scores["tool_usage"] = grade("tool_usage", user_input, json.dumps(tool_calls), expected_tool)
-    else:
-        scores["tool_usage"] = {"score": 10, "notes": "No tools needed/used"}
-
-    # 4. Grade Safety
-    scores["safety"] = grade("safety", user_input, agent_response)
-
-    return scores
-
-def calculate_composite_score(rubric_scores):
-    total = 0
-    weight_sum = 0
-    for k, v in rubric_scores.items():
-        if k in WEIGHTS:
-            total += v["score"] * WEIGHTS[k]
-            weight_sum += WEIGHTS[k]
-    return round((total / max(weight_sum, 0.01)) * 10, 2) # Scale to 100
-
-def generate_html_report(run_id, results, final_score):
     html = f"""
     <html>
     <head>
-        <title>Google ADK Agent Evaluation - {run_id}</title>
+        <title>Eval Report: {run_id}</title>
         <style>
             body {{ font-family: sans-serif; padding: 20px; }}
-            .score-card {{ background: #f4f4f4; padding: 15px; border-radius: 8px; margin-bottom: 20px; }}
-            .pass {{ color: green; }} .fail {{ color: red; }}
-            table {{ width: 100%; border-collapse: collapse; }}
+            table {{ border-collapse: collapse; width: 100%; }}
             th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background-color: #4285F4; color: white; }}
+            th {{ background-color: #f2f2f2; }}
+            .score {{ font-size: 2em; font-weight: bold; }}
         </style>
     </head>
     <body>
-        <h1>Agent Evaluation Report</h1>
-        <div class="score-card">
-            <h2>Final Score: {final_score}/100</h2>
-            <p><strong>Run ID:</strong> {run_id}</p>
-            <p><strong>Model:</strong> gemini-2.0-flash (Judge)</p>
-        </div>
-        
+        <h1>Evaluation Report</h1>
+        <p>Run ID: <strong>{run_id}</strong></p>
+        <div class="score">Overall Score: {overall_score}/100</div>
+        <br/>
         <table>
             <tr>
-                <th>Test Case ID</th>
+                <th>ID</th>
                 <th>Prompt</th>
-                <th>Correctness</th>
+                <th>Score</th>
                 <th>Reasoning</th>
-                <th>Tool Usage</th>
-                <th>Safety</th>
+                <th>Agent Output</th>
             </tr>
-    """
-    
-    for r in results:
-        html += f"""
-            <tr>
-                <td>{r['id']}</td>
-                <td>{r['prompt'][:50]}...</td>
-                <td>{r['scores']['correctness']['score']}</td>
-                <td>{r['scores']['reasoning']['score']}</td>
-                <td>{r['scores']['tool_usage']['score']}</td>
-                <td>{r['scores']['safety']['score']}</td>
-            </tr>
-        """
-    
-    html += """
+            {rows}
         </table>
-        <br>
-        <p><em>Reference: Google 5-Day AI Agents Intensive PDF (Day 4)</em></p>
     </body>
     </html>
     """
     return html
 
 def main():
-    parser = argparse.ArgumentParser(description="Google ADK Agent Evaluator")
-    parser.add_argument("--data", required=True, help="Path to integration.evalset.json")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", required=True, help="Path to raw results JSON")
     args = parser.parse_args()
 
-    data_path = Path(args.data)
-    if not data_path.exists():
-        print(f"Error: File {data_path} not found.")
-        return
+    if not os.path.exists(args.data):
+        print(f"Error: File not found {args.data}")
+        sys.exit(1)
 
-    eval_set = json.loads(data_path.read_text())
-    run_id = eval_set.get("eval_set_id", "unknown_run")
-    
+    with open(args.data, "r") as f:
+        raw_data = json.load(f)
+
+    run_id = raw_data.get("run_id", "unknown_run")
     print(f"🚀 Starting Evaluation for: {run_id}")
-    
-    results = []
-    all_composite_scores = []
 
-    for case in eval_set.get("eval_cases", []):
-        case_id = case.get("eval_id", "unknown")
-        print(f"  - Grading Case: {case_id}...")
+    graded_results = []
+    total_score = 0
+    count = 0
+
+    # --- ADAPTER LOGIC ---
+    # Detect if this is Day 2 "Raw Results" (list of tests) or Day 3 "Eval Set" (list of cases)
+    items_to_grade = []
+    
+    if "tests" in raw_data:
+        print(f"   -> Detected Day 2 Raw Results format ({len(raw_data['tests'])} tests)")
+        for t in raw_data["tests"]:
+            # Extract output from the trace stdout
+            trace = t.get("trace", {})
+            stdout = trace.get("stdout_snippet", "")
+            # Simple cleanup: remove the file listing if present
+            if "total 4" in stdout:
+                stdout = stdout.split("total 4")[1]
+            
+            items_to_grade.append({
+                "id": t.get("test_id", "unknown"),
+                "prompt": t.get("prompt", ""),
+                "actual_output": stdout.strip()
+            })
+            
+    elif "eval_cases" in raw_data:
+        print(f"   -> Detected Day 3 Eval Set format ({len(raw_data['eval_cases'])} cases)")
+        for t in raw_data["eval_cases"]:
+            # Assuming standard ADK format
+            items_to_grade.append({
+                "id": t.get("eval_id", "unknown"),
+                "prompt": t.get("conversation", [{}])[0].get("user_content", {}).get("parts", [{}])[0].get("text", ""),
+                "actual_output": t.get("conversation", [{}])[-1].get("final_response", {}).get("parts", [{}])[0].get("text", "")
+            })
+    else:
+        print("❌ Error: Unknown JSON format. Expected 'tests' or 'eval_cases' key.")
+        sys.exit(1)
+
+    # --- GRADING LOOP ---
+    for item in items_to_grade:
+        print(f"   Grading {item['id']}...", end="", flush=True)
         
-        scores = grade_test_case(case)
-        composite = calculate_composite_score(scores)
-        all_composite_scores.append(composite)
+        # Call Gemini Judge
+        score, reason = grade(item['prompt'], item['actual_output'])
         
-        prompt = case["conversation"][0]["user_content"]["parts"][0]["text"]
+        print(f" Score: {score}/5")
         
-        results.append({
-            "id": case_id,
-            "prompt": prompt,
-            "scores": scores,
-            "composite": composite
+        graded_results.append({
+            "test_id": item['id'],
+            "prompt": item['prompt'],
+            "actual_output": item['actual_output'],
+            "score": score,
+            "reason": reason
         })
+        total_score += score
+        count += 1
 
-    final_avg = round(statistics.mean(all_composite_scores), 2) if all_composite_scores else 0
-    
-    # Export Reports
-    json_out = REPORTS_DIR / f"{run_id}_report.json"
-    html_out = REPORTS_DIR / f"{run_id}_report.html"
-    
-    json_out.write_text(json.dumps(results, indent=2))
-    html_out.write_text(generate_html_report(run_id, results, final_avg))
-    
+    # Calculate final metrics
+    final_score = 0
+    if count > 0:
+        # Normalize 5-point scale to 100-point scale
+        final_score = int((total_score / (count * 5)) * 100)
+
     print(f"\n✅ Evaluation Complete!")
-    print(f"📊 Overall Score: {final_avg}/100")
+    print(f"📊 Overall Score: {final_score}/100")
+
+    # Save Reports
+    report_base = os.path.join(REPORTS_DIR, f"{run_id}")
+    
+    # 1. JSON Report
+    json_report = {
+        "run_id": run_id,
+        "final_score": final_score,
+        "details": graded_results
+    }
+    with open(f"{report_base}_report.json", "w") as f:
+        json.dump(json_report, f, indent=2)
+
+    # 2. HTML Report
+    html_content = generate_html_report(run_id, graded_results, final_score)
+    with open(f"{report_base}_report.html", "w") as f:
+        f.write(html_content)
+
     print(f"📄 Reports saved to: {REPORTS_DIR}")
 
 if __name__ == "__main__":
