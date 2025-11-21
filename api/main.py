@@ -112,7 +112,8 @@ def report_list():
     """Lists all generated evaluation reports."""
     if not os.path.exists(REPORTS_DIR):
         return {"reports": []}
-    files = sorted([f for f in os.listdir(REPORTS_DIR) if f.endswith("_evaluation_report.json")])
+    # FIX: Changed suffix to match pipeline output (_report.json)
+    files = sorted([f for f in os.listdir(REPORTS_DIR) if f.endswith("_report.json")])
     return {"reports": files}
 
 @app.get("/report/{run_id}")
@@ -120,7 +121,8 @@ def get_report(run_id: str):
     """Returns the JSON evaluation report."""
     # Handle both full filename or just the ID
     if not run_id.endswith(".json"):
-        filename = f"{run_id}_evaluation_report.json"
+        # FIX: Changed suffix
+        filename = f"{run_id}_report.json"
     else:
         filename = run_id
         
@@ -135,8 +137,9 @@ def get_report(run_id: str):
 def get_report_html(run_id: str):
     """Returns the HTML evaluation report for rendering in browser."""
     # Extract ID if filename passed
-    clean_id = run_id.replace("_evaluation_report.json", "").replace("_evaluation_report.html", "")
-    filename = f"{clean_id}_evaluation_report.html"
+    # FIX: Changed suffix replacements
+    clean_id = run_id.replace("_report.json", "").replace("_report.html", "")
+    filename = f"{clean_id}_report.html"
     
     path = os.path.join(REPORTS_DIR, filename)
     if not os.path.exists(path):
