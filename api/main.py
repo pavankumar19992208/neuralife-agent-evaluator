@@ -55,7 +55,12 @@ def run_pipeline_task(raw_path: str):
         # and python is available in path
         cmd = ["python", "evaluation/evaluation_pipeline.py", "--raw", raw_path]
         print(f"Starting pipeline: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        
+        # Fix: Add current directory to PYTHONPATH so 'graders' module is found
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.getcwd()
+        
+        subprocess.run(cmd, check=True, env=env) # <--- Pass env here
         print(f"Pipeline finished for {raw_path}")
     except subprocess.CalledProcessError as e:
         print(f"Pipeline failed: {e}")
