@@ -53,7 +53,7 @@ def run_pipeline_task(raw_path: str):
     try:
         # Assuming evaluation_pipeline.py is in /app/evaluation/
         # and python is available in path
-        cmd = ["python", "evaluation/evaluation_pipeline.py", "--raw", raw_path]
+        cmd = ["python", "evaluation/evaluation_pipeline.py", "--data", raw_path]
         print(f"Starting pipeline: {' '.join(cmd)}")
         
         # Fix: Add current directory to PYTHONPATH so 'graders' module is found
