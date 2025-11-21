@@ -1,9 +1,15 @@
 suite: tools
-description: "Evaluate correct tool usage."
+description: "Day 4 Tool Usage Tests"
 tests:
   - id: t1
-    prompt: "What is the current weather in Tokyo?"
-    expected_tool: google_search
+    prompt: "Turn on the living room light"
+    expected_tool: "device_api"
+    grader: tool_usage
   - id: t2
-    prompt: "Convert 150 USD to INR using your currency tool."
-    expected_tool: currency_conversion
+    prompt: "Convert 150 USD to INR"
+    expected_tool: "currency_conversion"
+    grader: tool_usage
+  - id: t3
+    prompt: "Calculate 24 * 17"
+    expected_tool: "calculator"
+    grader: tool_usage

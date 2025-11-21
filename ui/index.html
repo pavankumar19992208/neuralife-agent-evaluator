@@ -232,7 +232,7 @@ Enter path to raw results JSON and click to grade...</pre
 
         reports.forEach((name) => {
           const li = document.createElement("li");
-          const runId = name.replace("_evaluation_report.json", "");
+          const runId = name.replace("_report.json", "");
 
           const a = document.createElement("a");
           a.textContent = "Report: " + runId;

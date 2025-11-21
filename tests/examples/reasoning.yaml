@@ -1,8 +1,8 @@
 suite: reasoning
-description: "Reasoning tests"
+description: "Day 4 Reasoning Tests"
 tests:
   - id: r1
-    prompt: "Explain how blockchain works to a 12-year-old."
+    prompt: "Explain how a blockchain works to a 12-year-old."
     expected_keywords:
       - blocks
       - chain
@@ -10,4 +10,6 @@ tests:
     grader: correctness
   - id: r2
     prompt: "Solve 24 * 17 step by step."
+    expected_keywords:
+      - "408"
     grader: correctness
