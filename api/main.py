@@ -15,9 +15,13 @@ Path(REPORTS_DIR).mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="Neuralife Agent Evaluator API", version=APP_VERSION)
 
 # Serve static UI at /ui
-UI_DIR = os.path.join(os.path.dirname(__file__), "ui")
-if os.path.isdir(UI_DIR):
-    app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
+BASE_DIR = Path(__file__).resolve().parent.parent
+UI_DIR = BASE_DIR / "ui"
+
+if UI_DIR.exists() and UI_DIR.is_dir():
+    app.mount("/ui", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
+else:
+    print(f"WARNING: UI directory not found at {UI_DIR}")
 
 class EvalRequest(BaseModel):
     agent_archive_path: str

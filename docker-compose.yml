@@ -9,7 +9,8 @@ services:
       - DATA_DIR=/data
       - NLE_DATA_DIR=/data
       - PYTHONUNBUFFERED=1
-      - HOST_DATA_DIR=/home/ubuntu/neuralife-agent-evaluator/data # added
+      - HOST_DATA_DIR=/home/ubuntu/neuralife-agent-evaluator/data
+      - GOOGLE_API_KEY=AIzaSyCZS7D74oy_4b2Xk99Ye0uVeVn92a0IzXg
     volumes:
       - .:/app
       - ./runner:/app/runner
