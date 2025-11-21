@@ -1,4 +1,4 @@
-import os, uuid, json, subprocess
+import os, uuid, json, subprocess, sys
 from pathlib import Path
 from fastapi import FastAPI, HTTPException ,BackgroundTasks
 from fastapi.staticfiles import StaticFiles
@@ -34,8 +34,14 @@ class StartEvalRequest(BaseModel):
     timeout: int = 30
     memory: str = "256m"
     cpus: str = "0.5"
+
 class RunEvalRequest(BaseModel):
     raw_results_path: str
+
+class RunSuiteRequest(BaseModel):
+    suite: str
+    archive_path: str
+
 @app.get("/")
 def root():
     return RedirectResponse(url="/ui/")
@@ -52,7 +58,6 @@ def run_pipeline_task(raw_path: str):
     """Background task to run the evaluation pipeline script."""
     try:
         # Assuming evaluation_pipeline.py is in /app/evaluation/
-        # and python is available in path
         cmd = ["python", "evaluation/evaluation_pipeline.py", "--data", raw_path]
         print(f"Starting pipeline: {' '.join(cmd)}")
         
@@ -60,7 +65,7 @@ def run_pipeline_task(raw_path: str):
         env = os.environ.copy()
         env["PYTHONPATH"] = os.getcwd()
         
-        subprocess.run(cmd, check=True, env=env) # <--- Pass env here
+        subprocess.run(cmd, check=True, env=env)
         print(f"Pipeline finished for {raw_path}")
     except subprocess.CalledProcessError as e:
         print(f"Pipeline failed: {e}")
@@ -77,6 +82,38 @@ def run_evaluation(req: RunEvalRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(run_pipeline_task, req.raw_results_path)
     
     return {"status": "started", "message": "Evaluation pipeline started in background"}
+
+@app.post("/run-suite")
+def run_suite_endpoint(req: RunSuiteRequest):
+    """
+    Executes a full test suite using cli.py.
+    """
+    if not os.path.exists(req.suite):
+        raise HTTPException(status_code=400, detail=f"Suite file not found: {req.suite}")
+    if not os.path.exists(req.archive_path):
+        raise HTTPException(status_code=400, detail=f"Archive file not found: {req.archive_path}")
+
+    # Construct the CLI command
+    cmd = [sys.executable, "cli.py", "run-suite", "--suite", req.suite, "--archive", req.archive_path]
+    
+    try:
+        # Run the CLI command
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, cwd=os.getcwd())
+        
+        # Parse stdout to find the generated raw_results path
+        output_path = None
+        for line in result.stdout.splitlines():
+            if "Saved raw results to:" in line:
+                output_path = line.split("Saved raw results to:")[1].strip()
+                
+        return {
+            "status": "success", 
+            "output": result.stdout,
+            "raw_results_path": output_path
+        }
+    except subprocess.CalledProcessError as e:
+        return {"status": "error", "error": e.stderr, "stdout": e.stdout}
+
 @app.post("/run-welcome")
 def run_welcome():
     job_id = str(uuid.uuid4())
@@ -112,16 +149,13 @@ def report_list():
     """Lists all generated evaluation reports."""
     if not os.path.exists(REPORTS_DIR):
         return {"reports": []}
-    # FIX: Changed suffix to match pipeline output (_report.json)
     files = sorted([f for f in os.listdir(REPORTS_DIR) if f.endswith("_report.json")])
     return {"reports": files}
 
 @app.get("/report/{run_id}")
 def get_report(run_id: str):
     """Returns the JSON evaluation report."""
-    # Handle both full filename or just the ID
     if not run_id.endswith(".json"):
-        # FIX: Changed suffix
         filename = f"{run_id}_report.json"
     else:
         filename = run_id
@@ -136,8 +170,6 @@ def get_report(run_id: str):
 @app.get("/report-html/{run_id}")
 def get_report_html(run_id: str):
     """Returns the HTML evaluation report for rendering in browser."""
-    # Extract ID if filename passed
-    # FIX: Changed suffix replacements
     clean_id = run_id.replace("_report.json", "").replace("_report.html", "")
     filename = f"{clean_id}_report.html"
     
